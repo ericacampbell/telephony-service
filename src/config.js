@@ -30,6 +30,12 @@ export const config = {
   briefEffort: process.env.BRIEF_EFFORT || 'medium',
   // Pin this in any deployed environment; see seedDefaultTenant().
   shareToken: process.env.SHARE_TOKEN || process.env.DEV_SHARE_TOKEN || null,
+  twilioAccountSid: process.env.TWILIO_ACCOUNT_SID,
+  twilioAuthToken: process.env.TWILIO_AUTH_TOKEN,
+  // Signature checks need the auth token; skip only when explicitly asked (tests,
+  // or poking at the endpoints by hand before Twilio is wired up).
+  skipTwilioValidation:
+    process.env.SKIP_TWILIO_VALIDATION === "true" || !process.env.TWILIO_AUTH_TOKEN,
   defaultTenantSlug: process.env.DEFAULT_TENANT_SLUG || 'demo',
 };
 

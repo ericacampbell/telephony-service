@@ -1,10 +1,12 @@
 import Fastify from 'fastify';
 import multipart from '@fastify/multipart';
 import cookie from '@fastify/cookie';
+import formbody from '@fastify/formbody';
 import { runPipeline, nullStore } from './pipeline.js';
 import { config } from './config.js';
 import { tenantFromRequest, cookieOptions, COOKIE_NAME } from './auth.js';
 import { findTenantBySlug } from './tenants.js';
+import { registerVoiceRoutes } from './voice.js';
 import { renderTryItPage, renderUnauthorized, renderCallPage, renderNotFound } from './web/page.js';
 
 export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
@@ -17,6 +19,11 @@ export function buildServer({ logger = false, deps = {}, store = nullStore } = {
 
   app.register(cookie);
   app.register(multipart, { limits: { fileSize: MAX_UPLOAD_BYTES, files: 1 } });
+  // Twilio posts application/x-www-form-urlencoded; Fastify does not parse that
+  // out of the box, and without this every webhook 415s.
+  app.register(formbody);
+
+  registerVoiceRoutes(app, { store, deps });
 
   app.get('/health', async () => ({ ok: true }));
 

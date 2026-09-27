@@ -32,3 +32,8 @@ services:
       # Set to the service's own https URL so the boot log prints a clickable link.
       - key: PUBLIC_URL
         sync: false
+      # Twilio: recording downloads + webhook signature verification.
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
