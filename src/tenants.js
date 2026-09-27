@@ -103,13 +103,26 @@ export function tenantsFromEnv(raw = process.env.TENANTS) {
   }
   if (!Array.isArray(parsed)) throw new Error('TENANTS must be a JSON array');
 
-  const seen = new Set();
+  const seenTokens = new Set();
+  const seenSlugs = new Set();
+  const seenNumbers = new Set();
   return parsed.map((t, i) => {
     if (!t.slug) throw new Error(`TENANTS[${i}] has no slug`);
     if (!t.shareToken) throw new Error(`TENANTS[${i}] (${t.slug}) has no shareToken`);
     // A duplicate token would silently hand one tenant another's data.
-    if (seen.has(t.shareToken)) throw new Error(`TENANTS[${i}] (${t.slug}) reuses a shareToken`);
-    seen.add(t.shareToken);
+    if (seenTokens.has(t.shareToken)) throw new Error(`TENANTS[${i}] (${t.slug}) reuses a shareToken`);
+    if (seenSlugs.has(t.slug)) throw new Error(`TENANTS[${i}] reuses the slug ${t.slug}`);
+    // Inbound calls resolve the tenant by the number dialled, so a shared
+    // twilioNumber would route every call to whichever tenant was listed first.
+    if (t.twilioNumber && seenNumbers.has(t.twilioNumber)) {
+      throw new Error(
+        `TENANTS[${i}] (${t.slug}) reuses twilioNumber ${t.twilioNumber} — ` +
+          'inbound calls resolve the tenant by this number, so it must be unique',
+      );
+    }
+    seenTokens.add(t.shareToken);
+    seenSlugs.add(t.slug);
+    if (t.twilioNumber) seenNumbers.add(t.twilioNumber);
     return t;
   });
 }

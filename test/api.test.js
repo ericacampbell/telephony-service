@@ -141,6 +141,20 @@ test('TENANTS env parsing rejects the mistakes that would leak data', async () =
     () => tenantsFromEnv('[{"slug":"a","shareToken":"t"},{"slug":"b","shareToken":"t"}]'),
     /reuses a shareToken/,
   );
+  assert.throws(
+    () => tenantsFromEnv('[{"slug":"a","shareToken":"t1"},{"slug":"a","shareToken":"t2"}]'),
+    /reuses the slug/,
+  );
+  // Sharing a Twilio number would route every inbound call to the first tenant.
+  assert.throws(
+    () => tenantsFromEnv('[{"slug":"a","shareToken":"t1","twilioNumber":"+1555"},{"slug":"b","shareToken":"t2","twilioNumber":"+1555"}]'),
+    /reuses twilioNumber/,
+  );
+  // Sharing a forward number is fine — two tenants can ring the same agent.
+  assert.equal(
+    tenantsFromEnv('[{"slug":"a","shareToken":"t1","forward":"+1555"},{"slug":"b","shareToken":"t2","forward":"+1555"}]').length,
+    2,
+  );
 });
 
 test('GET /calls/:id serves the stored brief, and 404s across tenants', async () => {

@@ -5,15 +5,24 @@ import { config } from '../config.js';
  * a 404 right after the webhook is normal, not fatal. Retry with backoff.
  */
 export async function fetchRecording(recordingUrl, { attempts = 5, baseDelayMs = 400 } = {}) {
-  if (!config.twilioAccountSid || !config.twilioAuthToken) {
+  // Only Twilio's own media needs our credentials — never send them to a host
+  // that merely turned up in a webhook payload.
+  const isTwilioHost = /(^|\.)twilio\.com$/i.test(new URL(recordingUrl).hostname);
+  if (isTwilioHost && (!config.twilioAccountSid || !config.twilioAuthToken)) {
     throw new Error('TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN are not set');
   }
-  const auth = Buffer.from(`${config.twilioAccountSid}:${config.twilioAuthToken}`).toString('base64');
-  const url = recordingUrl.endsWith('.wav') ? recordingUrl : `${recordingUrl}.wav`;
+  const headers = isTwilioHost
+    ? {
+        Authorization: `Basic ${Buffer.from(
+          `${config.twilioAccountSid}:${config.twilioAuthToken}`,
+        ).toString('base64')}`,
+      }
+    : {};
+  const url = isTwilioHost && !recordingUrl.endsWith('.wav') ? `${recordingUrl}.wav` : recordingUrl;
 
   let lastStatus = 0;
   for (let attempt = 0; attempt < attempts; attempt += 1) {
-    const res = await fetch(url, { headers: { Authorization: `Basic ${auth}` } });
+    const res = await fetch(url, { headers });
     if (res.ok) {
       const buffer = Buffer.from(await res.arrayBuffer());
       return { buffer, filename: 'recording.wav', mimetype: 'audio/wav', bytes: buffer.length };
