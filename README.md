@@ -112,8 +112,54 @@ generates it) and nothing is stored — briefs live only in the response.
 - **Hold music must cover ~10s, not the ~6s first assumed** — measured, and the
   number grows with recording length.
 
-## Not built
+## Scope choices
 
-Transfer mode; the whisper reads `first_line` only after the whole brief is
-generated (streaming it first would cut perceived latency); tenant tokens are
-bearer credentials with no expiry.
+This was a two-hour build. The things that look thin are mostly deliberate:
+
+- **One page, server-rendered, no framework or build step.** The UI exists to
+  prove the pipeline, so it's a single HTML template served inline — no React, no
+  bundler, no asset pipeline. That kept deploy to `npm ci && npm start` and meant
+  a CSS fix was a one-line push rather than a rebuild. A real product needs an
+  agent-facing view with call history and search; that's a different piece of work,
+  not a bigger version of this page.
+- **Deployed at stage 2, before persistence.** A live URL that does one thing
+  beats a complete local service. It also surfaced two failures that never appear
+  locally: a transitive dependency requiring Node 22, and Fastify not parsing
+  form-encoded bodies (which would have broken every Twilio webhook).
+- **In-memory fallback for tenants.** Lets the service run with no database at
+  all, so the deploy never blocked on Supabase being ready.
+- **No user accounts.** A token in a link is the whole credential. Right for a
+  demo several people open; wrong for production, where agents need identities.
+- **Brief generated synchronously while the caller holds.** Simple and fast
+  enough (~8s) at this scale. A queue would be correct under real load.
+
+## With more time
+
+In the order I'd actually do them:
+
+1. **Transfer mode** — the headline use case and the one that's missing. It needs
+   dual-channel recording on leg one so "what the agent promised" and "what the
+   caller tried" can be told apart by speaker, which is also what makes
+   `already_tried` and `promises` reliable rather than plausible.
+2. **Stream `first_line` first.** It's generated near the *end* of the JSON, so
+   the whisper can't start until the whole brief finishes. Reordering the schema
+   and streaming would cut several seconds of dead air on a live call — the
+   difference between "brief before pickup" being comfortable and being tight.
+3. **Turn persistence on** (it's written — `DATABASE_URL` and one migration) and
+   add the agent-facing call history the schema already supports.
+4. **An eval set for the prompt.** Right now prompt quality rests on one fixture.
+   The `reason` field silently overran its 200-char cap on *every* run until I
+   instrumented the retry path — a dozen labelled recordings with expected
+   fields would have caught that immediately, and would catch the next
+   regression.
+5. **Expiring, rotatable tenant tokens.** Bearer credentials with no expiry are
+   fine for an afternoon and not fine for a week.
+6. **Speaker diarization** rather than relying on a single transcript stream, so
+   attribution doesn't depend on the model inferring who said what.
+
+## Known limitations
+
+Transfer mode is not built. Tenant tokens are bearer credentials with no expiry.
+Without `DATABASE_URL` nothing is stored, so `/calls/:id` is inactive. Intake has
+no phone number on a Twilio trial account (above). The brief costs ~8s, so hold
+music has to cover it.
