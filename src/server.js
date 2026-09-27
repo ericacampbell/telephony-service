@@ -1,3 +1,4 @@
+import { createReadStream } from 'node:fs';
 import Fastify from 'fastify';
 import multipart from '@fastify/multipart';
 import cookie from '@fastify/cookie';
@@ -10,6 +11,10 @@ import { registerVoiceRoutes } from './voice.js';
 import { renderTryItPage, renderUnauthorized, renderCallPage, renderNotFound } from './web/page.js';
 
 export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
+
+export const SAMPLES = {
+  'wifi-call.m4a': { file: 'wifi-call.m4a', mimetype: 'audio/mp4' },
+};
 
 // Audio the STT step can actually read. Anything else is a 415, not a 500.
 const ALLOWED_MIME = /^audio\/|^video\/webm$/;
@@ -26,6 +31,15 @@ export function buildServer({ logger = false, deps = {}, store = nullStore } = {
   registerVoiceRoutes(app, { store, deps });
 
   app.get('/health', async () => ({ ok: true }));
+
+  // Sample recording for the Try-it page, so the link is usable by someone who
+  // has no call recording to hand. Allowlisted name — never a path from the URL.
+  app.get('/samples/:name', async (req, reply) => {
+    const sample = SAMPLES[req.params.name];
+    if (!sample) return reply.code(404).send({ error: 'no such sample' });
+    const path = new URL(`../samples/${sample.file}`, import.meta.url);
+    return reply.type(sample.mimetype).send(createReadStream(path));
+  });
 
   // Bare domain is the link people will try first — send them at the Try-it
   // page, which explains that the token is missing rather than 404ing.

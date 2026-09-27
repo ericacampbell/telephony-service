@@ -36,6 +36,11 @@ const BASE_STYLE = `<style>
     border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
   button { background: var(--accent); color: #fff; border: none; cursor: pointer; font-weight: 600; }
   button:disabled { opacity: .55; cursor: default; }
+  button.ghost { background: transparent; color: var(--muted); border: 1px solid var(--line);
+    font-weight: 500; }
+  button.ghost:hover { color: var(--ink); border-color: var(--accent); }
+  .modehint { color: var(--muted); font-size: 0.86rem; text-align: center;
+    margin: 12px auto 0; max-width: 60ch; }
   .status { margin-top: 18px; color: var(--muted); font-size: 0.9rem; min-height: 1.4em; }
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
     padding: 20px 22px; margin-top: 18px; }
@@ -81,10 +86,12 @@ ${BASE_STYLE}
     <select id="mode">
       <option value="transfer">transfer — agent to agent</option>
       <option value="intake">intake — caller to agent</option>
-      <option value="try-it">try-it</option>
+      <option value="try-it">try-it — no assumption</option>
     </select>
     <button id="go" disabled>Build the brief</button>
+    <button id="sample" class="ghost" type="button">Use the sample call</button>
   </div>
+  <p class="modehint" id="modehint"></p>
 
   <div class="status" id="status"></div>
   <div id="out"></div>
@@ -102,6 +109,34 @@ fileInput.addEventListener('change', () => pick(fileInput.files[0]));
 }));
 ['dragleave','drop'].forEach(e => drop.addEventListener(e, () => drop.classList.remove('over')));
 drop.addEventListener('drop', ev => { ev.preventDefault(); pick(ev.dataTransfer.files[0]); });
+
+// Mode changes how the transcript is framed for the model, so say what each
+// one assumes rather than leaving the selector looking inert.
+const MODE_HINT = {
+  transfer: 'Assumes an agent was already on the call. "Already tried" and "Promised" are read as what that first agent did and committed to.',
+  intake: 'Assumes the caller is describing the problem on their own, with no agent yet. "Already tried" is read as what the caller has attempted.',
+  'try-it': 'Makes no assumption about who is on the call. Use this when the recording is neither a handover nor a clean intake.',
+};
+const modeSel = $('mode'), modehint = $('modehint');
+const showHint = () => { modehint.textContent = MODE_HINT[modeSel.value]; };
+modeSel.addEventListener('change', showHint);
+showHint();
+
+$('sample').addEventListener('click', async () => {
+  const btn = $('sample');
+  btn.disabled = true;
+  status.textContent = 'Loading the sample recording…';
+  try {
+    const res = await fetch('/samples/wifi-call.m4a');
+    if (!res.ok) throw new Error('sample unavailable (' + res.status + ')');
+    const blob = await res.blob();
+    pick(new File([blob], 'wifi-call.m4a', { type: 'audio/mp4' }));
+    status.textContent = 'Sample loaded — a caller reporting a wifi problem. Press Build the brief.';
+  } catch (err) {
+    status.textContent = 'Could not load the sample: ' + err.message;
+  }
+  btn.disabled = false;
+});
 
 let chosen = null;
 function pick(f) {
