@@ -25,6 +25,10 @@ services:
       # regenerated on every restart and shared links break.
       - key: SHARE_TOKEN
         sync: false
+      # Multiple tenants without a database (see scripts/make-tenants.js).
+      # Takes precedence over SHARE_TOKEN when set.
+      - key: TENANTS
+        sync: false
       # Set to the service's own https URL so the boot log prints a clickable link.
       - key: PUBLIC_URL
         sync: false

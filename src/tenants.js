@@ -86,13 +86,46 @@ export async function listTenants() {
 }
 
 /**
- * No-database fallback: one tenant so the service is usable with nothing set up.
- * Without a pinned SHARE_TOKEN the token is regenerated on every restart and any
- * link already shared stops working — which is why stage 3 moves this to Postgres.
+ * No-database tenants, from the TENANTS env var: a JSON array of
+ *   {slug, name?, shareToken, twilioNumber?, agentA?, agentB?, forward?, greeting?}
+ *
+ * Tokens must be supplied here. A generated token would be regenerated on every
+ * restart, and Render's free tier restarts on its own — so links handed out
+ * before a restart would 401 afterwards with no visible cause.
+ */
+export function tenantsFromEnv(raw = process.env.TENANTS) {
+  if (!raw) return [];
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (err) {
+    throw new Error(`TENANTS is not valid JSON: ${err.message}`);
+  }
+  if (!Array.isArray(parsed)) throw new Error('TENANTS must be a JSON array');
+
+  const seen = new Set();
+  return parsed.map((t, i) => {
+    if (!t.slug) throw new Error(`TENANTS[${i}] has no slug`);
+    if (!t.shareToken) throw new Error(`TENANTS[${i}] (${t.slug}) has no shareToken`);
+    // A duplicate token would silently hand one tenant another's data.
+    if (seen.has(t.shareToken)) throw new Error(`TENANTS[${i}] (${t.slug}) reuses a shareToken`);
+    seen.add(t.shareToken);
+    return t;
+  });
+}
+
+/**
+ * Tenants at boot. Postgres when DATABASE_URL is set; otherwise TENANTS, and
+ * failing that a single tenant from SHARE_TOKEN so the service still runs.
  */
 export async function seedDefaultTenant() {
   if (hasDb()) return listTenants();
-  if (!memory.size) {
+  if (memory.size) return [...memory.values()];
+
+  const configured = tenantsFromEnv();
+  if (configured.length) {
+    for (const t of configured) seedTenant(t);
+  } else {
     seedTenant({
       slug: config.defaultTenantSlug,
       name: process.env.DEFAULT_TENANT_NAME || 'Demo Tenant',

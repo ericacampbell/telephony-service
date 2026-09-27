@@ -127,6 +127,22 @@ test("one tenant's token cannot open another tenant's page", async () => {
   await server.close();
 });
 
+test('TENANTS env parsing rejects the mistakes that would leak data', async () => {
+  const { tenantsFromEnv } = await import('../src/tenants.js');
+  assert.deepEqual(tenantsFromEnv(undefined), []);
+  assert.equal(tenantsFromEnv('[{"slug":"a","shareToken":"t1"}]').length, 1);
+
+  assert.throws(() => tenantsFromEnv('not json'), /not valid JSON/);
+  assert.throws(() => tenantsFromEnv('{"slug":"a"}'), /must be a JSON array/);
+  assert.throws(() => tenantsFromEnv('[{"name":"a","shareToken":"t"}]'), /no slug/);
+  assert.throws(() => tenantsFromEnv('[{"slug":"a"}]'), /no shareToken/);
+  // Two tenants sharing a token would hand one of them the other's calls.
+  assert.throws(
+    () => tenantsFromEnv('[{"slug":"a","shareToken":"t"},{"slug":"b","shareToken":"t"}]'),
+    /reuses a shareToken/,
+  );
+});
+
 test('GET /calls/:id serves the stored brief, and 404s across tenants', async () => {
   // Stands in for dbStore: the point under test is that the route passes the
   // requesting tenant's id down and treats a non-match as "no such call".
