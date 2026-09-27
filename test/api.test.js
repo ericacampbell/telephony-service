@@ -228,9 +228,9 @@ test('the pipeline is called with the resolved tenant, not a default', async () 
 
 test('the sample recording is served, and only from the allowlist', async () => {
   const server = app();
-  const ok = await server.inject({ method: 'GET', url: '/samples/wifi-call.m4a' });
+  const ok = await server.inject({ method: 'GET', url: '/samples/sample-call.wav' });
   assert.equal(ok.statusCode, 200);
-  assert.match(ok.headers['content-type'], /audio\/mp4/);
+  assert.match(ok.headers['content-type'], /audio\/wav/);
   assert.ok(ok.rawPayload.length > 1000, 'sample should have real audio in it');
 
   // The name is a key into an allowlist, never a filesystem path.

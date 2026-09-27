@@ -99,7 +99,13 @@ export function tenantsFromEnv(raw = process.env.TENANTS) {
   try {
     parsed = JSON.parse(raw);
   } catch (err) {
-    throw new Error(`TENANTS is not valid JSON: ${err.message}`);
+    const smartQuotes = /[‘’“”]/.test(raw);
+    throw new Error(
+      `TENANTS is not valid JSON: ${err.message}.` +
+        (smartQuotes
+          ? ' It contains curly quotes (“ ” ‘ ’) — a paste from a document or chat. Retype the quotes as plain ".'
+          : ' Keys and values both need plain double quotes.'),
+    );
   }
   if (!Array.isArray(parsed)) throw new Error('TENANTS must be a JSON array');
 
@@ -135,7 +141,17 @@ export async function seedDefaultTenant() {
   if (hasDb()) return listTenants();
   if (memory.size) return [...memory.values()];
 
-  const configured = tenantsFromEnv();
+  // A typo in TENANTS used to crash-loop the service, taking the whole demo
+  // down. Log it loudly and fall back to a single tenant instead: a running
+  // service with one tenant beats a dead one.
+  let configured = [];
+  try {
+    configured = tenantsFromEnv();
+  } catch (err) {
+    console.error(`[tenants] ${err.message}`);
+    console.error('[tenants] falling back to a single tenant from SHARE_TOKEN');
+  }
+
   if (configured.length) {
     for (const t of configured) seedTenant(t);
   } else {

@@ -127,11 +127,11 @@ $('sample').addEventListener('click', async () => {
   btn.disabled = true;
   status.textContent = 'Loading the sample recording…';
   try {
-    const res = await fetch('/samples/wifi-call.m4a');
+    const res = await fetch('/samples/sample-call.wav');
     if (!res.ok) throw new Error('sample unavailable (' + res.status + ')');
     const blob = await res.blob();
-    pick(new File([blob], 'wifi-call.m4a', { type: 'audio/mp4' }));
-    status.textContent = 'Sample loaded — a caller reporting a wifi problem. Press Build the brief.';
+    pick(new File([blob], 'sample-call.wav', { type: 'audio/wav' }));
+    status.textContent = 'Sample loaded — a billing dispute being handed over. Press Build the brief.';
   } catch (err) {
     status.textContent = 'Could not load the sample: ' + err.message;
   }

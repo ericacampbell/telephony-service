@@ -13,7 +13,7 @@ import { renderTryItPage, renderUnauthorized, renderCallPage, renderNotFound } f
 export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 
 export const SAMPLES = {
-  'wifi-call.m4a': { file: 'wifi-call.m4a', mimetype: 'audio/mp4' },
+  'sample-call.wav': { file: 'sample-call.wav', mimetype: 'audio/wav' },
 };
 
 // Audio the STT step can actually read. Anything else is a 415, not a 500.
