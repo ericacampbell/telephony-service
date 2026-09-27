@@ -127,6 +127,59 @@ test("one tenant's token cannot open another tenant's page", async () => {
   await server.close();
 });
 
+test('GET /calls/:id serves the stored brief, and 404s across tenants', async () => {
+  // Stands in for dbStore: the point under test is that the route passes the
+  // requesting tenant's id down and treats a non-match as "no such call".
+  const stored = {
+    tenantId: 'ten_acme',
+    record: {
+      call: { id: 'call-1', mode: 'transfer', status: 'bridged', created_at: new Date() },
+      transcript: { text: 'Caller wants a refund.' },
+      brief: {
+        valid: true,
+        attempts: 1,
+        latency_ms: 7000,
+        model: 'claude-sonnet-4-6',
+        brief: {
+          caller: { name: 'Priya', phone: null, account_ref: null },
+          reason: 'Double charged.',
+          already_tried: ['called once'],
+          promises: [{ what: 'refund', by_when: 'the 15th' }],
+          sentiment: { label: 'frustrated', confidence: 0.8 },
+          risk_flags: ['churn'],
+          first_line: 'Priya, I can see the duplicate charge.',
+          confidence: 0.8,
+          unknowns: [],
+        },
+      },
+    },
+  };
+  const server = buildServer({
+    deps,
+    store: {
+      async saveTranscript() {}, async saveBrief() {}, async recordEvent() {}, async updateCall() {},
+      async getCall({ tenantId, callId }) {
+        return tenantId === stored.tenantId && callId === 'call-1' ? stored.record : null;
+      },
+    },
+  });
+
+  const mine = await server.inject({
+    method: 'GET', url: '/calls/call-1', cookies: { tenant_token: 'tok_acme' },
+  });
+  assert.equal(mine.statusCode, 200);
+  assert.match(mine.body, /Priya, I can see the duplicate charge/);
+
+  const theirs = await server.inject({
+    method: 'GET', url: '/calls/call-1', cookies: { tenant_token: 'tok_globex' },
+  });
+  assert.equal(theirs.statusCode, 404, 'cross-tenant read must be 404, never 403');
+
+  const anon = await server.inject({ method: 'GET', url: '/calls/call-1' });
+  assert.equal(anon.statusCode, 401);
+  await server.close();
+});
+
 test('the pipeline is called with the resolved tenant, not a default', async () => {
   const seen = [];
   const server = buildServer({

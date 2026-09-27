@@ -1,16 +1,10 @@
 const escapeHtml = (s) =>
   String(s).replace(/[&<>"']/g, (c) =>
-    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
   );
 
-export function renderTryItPage({ tenant }) {
-  return `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Transfer Brief — ${escapeHtml(tenant.name)}</title>
-<style>
+// Shared by the Try-it page and the stored-call view so the two never drift.
+const BASE_STYLE = `<style>
   :root {
     --bg: #faf9f7; --panel: #fff; --ink: #1c1b19; --muted: #6b6862;
     --line: #e4e1db; --accent: #9a4f2b; --warn: #a8481b; --ok: #3d6b45;
@@ -57,7 +51,16 @@ export function renderTryItPage({ tenant }) {
   details { margin-top: 14px; } summary { cursor: pointer; color: var(--muted); font-size: 0.88rem; }
   pre { white-space: pre-wrap; font-size: 0.85rem; color: var(--muted);
     background: var(--bg); padding: 12px; border-radius: 8px; overflow-x: auto; }
-</style>
+</style>`;
+
+export function renderTryItPage({ tenant }) {
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Transfer Brief — ${escapeHtml(tenant.name)}</title>
+${BASE_STYLE}
 </head>
 <body>
 <div class="wrap">
@@ -170,6 +173,71 @@ function render(r) {
 </script>
 </body>
 </html>`;
+}
+
+/** Server-rendered view of a stored call — what an agent opens mid-transfer. */
+export function renderCallPage({ tenant, call, transcript, brief }) {
+  const b = brief?.brief;
+  const list = (items, empty) =>
+    items?.length
+      ? `<ul>${items.map((i) => `<li>${i}</li>`).join('')}</ul>`
+      : `<p class="sub" style="margin:0">${empty}</p>`;
+
+  const body = !b
+    ? '<div class="card"><p class="label">No brief yet</p><p style="margin:0">This call has no brief — it may still be running, or the transcript was empty.</p></div>'
+    : [
+        `<div class="card${brief.valid ? '' : ' invalid'}">`,
+        '<p class="label">Say this first</p>',
+        `<p class="firstline">${escapeHtml(b.first_line)}</p>`,
+        '</div>',
+        '<div class="card">',
+        '<p class="label">Why they are calling</p>',
+        `<p style="margin:0 0 16px">${escapeHtml(b.reason)}</p>`,
+        '<div class="badges">',
+        `<span class="badge">${escapeHtml(b.sentiment.label)} · ${Math.round(b.sentiment.confidence * 100)}%</span>`,
+        (b.risk_flags || [])
+          .filter((f) => f !== 'none')
+          .map((f) => `<span class="badge risk">${escapeHtml(f.replace(/_/g, ' '))}</span>`)
+          .join(''),
+        `<span class="badge">confidence ${Math.round(b.confidence * 100)}%</span>`,
+        '</div></div>',
+        '<div class="card"><p class="label">Already tried</p>',
+        list((b.already_tried || []).map(escapeHtml), 'Nothing recorded on the call.'),
+        '</div>',
+        '<div class="card"><p class="label">Promised</p>',
+        list(
+          (b.promises || []).map(
+            (p) =>
+              escapeHtml(p.what) +
+              (p.by_when ? ` <span class="when">— ${escapeHtml(p.by_when)}</span>` : ''),
+          ),
+          'No commitments were made.',
+        ),
+        '</div>',
+        '<div class="card"><p class="label">Still unknown</p>',
+        list((b.unknowns || []).map(escapeHtml), 'Nothing outstanding.'),
+        `<details><summary>Transcript and run details</summary><pre>${escapeHtml(transcript?.text || '(no transcript)')}</pre>`,
+        `<p class="meta">valid=${brief.valid} · attempts=${brief.attempts ?? '—'} · brief=${brief.latency_ms ?? '—'}ms · model=${escapeHtml(brief.model || '—')}${brief.error ? `<br>error: ${escapeHtml(brief.error)}` : ''}</p></details>`,
+        '</div>',
+      ].join('');
+
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Call ${escapeHtml(String(call.id).slice(0, 8))} — ${escapeHtml(tenant.name)}</title>
+${BASE_STYLE}</head><body><div class="wrap">
+<h1>Transfer Brief</h1>
+<p class="sub">${escapeHtml(tenant.name)} · ${escapeHtml(call.mode)} · ${escapeHtml(call.status)} · ${escapeHtml(new Date(call.created_at).toISOString())}</p>
+${body}
+<p class="meta"><a href="/t/${escapeHtml(tenant.slug)}">← back to Try it</a></p>
+</div></body></html>`;
+}
+
+export function renderNotFound() {
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Not found</title>
+<style>body{font:16px/1.6 ui-sans-serif,system-ui,sans-serif;max-width:480px;margin:18vh auto;
+padding:0 20px;color:#1c1b19}@media(prefers-color-scheme:dark){body{background:#171614;color:#f0eee9}}</style>
+</head><body><h1>No such call</h1>
+<p>This call does not exist, or it belongs to a different tenant.</p></body></html>`;
 }
 
 export function renderUnauthorized() {

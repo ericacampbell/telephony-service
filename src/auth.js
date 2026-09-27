@@ -14,9 +14,9 @@ export function tokenFromRequest(req, pathToken) {
   );
 }
 
-export function tenantFromRequest(req, pathToken) {
+export async function tenantFromRequest(req, pathToken) {
   const token = tokenFromRequest(req, pathToken);
-  const tenant = findTenantByToken(token);
+  const tenant = await findTenantByToken(token);
   if (!tenant || !tenant.active) return null;
   return tenant;
 }
