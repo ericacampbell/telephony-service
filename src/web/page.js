@@ -21,9 +21,13 @@ const BASE_STYLE = `<style>
   .wrap { max-width: 760px; margin: 0 auto; padding: 40px 20px 80px; }
   h1 { font-size: 1.5rem; margin: 0 0 4px; letter-spacing: -0.01em; }
   .sub { color: var(--muted); margin: 0 0 28px; font-size: 0.93rem; }
-  .drop { border: 1.5px dashed var(--line); border-radius: 12px; background: var(--panel);
-    padding: 32px 20px; text-align: center; cursor: pointer; transition: border-color .15s; }
-  .drop:hover, .drop.over { border-color: var(--accent); }
+  /* label is inline by default; with block children the browser fragments it
+     and the dashed border collapses into a sliver. */
+  .drop { display: block; width: 100%; border: 1.5px dashed var(--line); border-radius: 12px;
+    background: var(--panel); padding: 32px 20px; text-align: center; cursor: pointer;
+    transition: border-color .15s, background .15s; }
+  .drop:hover { border-color: var(--accent); }
+  .drop.over { border-color: var(--accent); background: var(--bg); }
   .drop input { display: none; }
   .drop .hint { color: var(--muted); font-size: 0.87rem; margin-top: 6px; }
   .row { display: flex; gap: 10px; align-items: center; justify-content: center;
