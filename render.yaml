@@ -1,0 +1,30 @@
+# Render Blueprint. Import this repo as a Blueprint and Render reads this file
+# instead of asking for build/start commands in the dashboard.
+services:
+  - type: web
+    name: telephony-service
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: NODE_ENV
+        value: production
+      - key: DEFAULT_TENANT_SLUG
+        value: demo
+      # sync: false = Render prompts for the value and never stores it in git.
+      - key: GROQ_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      # Pin this: tenants are in memory until stage 3, so an unpinned token is
+      # regenerated on every restart and shared links break.
+      - key: SHARE_TOKEN
+        sync: false
+      # Set to the service's own https URL so the boot log prints a clickable link.
+      - key: PUBLIC_URL
+        sync: false

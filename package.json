@@ -1,0 +1,23 @@
+{
+  "name": "telephony-service",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20 <21"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "pipeline": "node scripts/run-pipeline.js",
+    "fixture": "bash scripts/make-fixture.sh",
+    "test": "node --test 'test/*.test.js'"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.68.0",
+    "@fastify/cookie": "^11.1.2",
+    "@fastify/multipart": "^10.1.2",
+    "ajv": "^8.17.1",
+    "fastify": "^5.12.5"
+  }
+}
